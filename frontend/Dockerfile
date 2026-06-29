@@ -7,6 +7,10 @@ FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_* зашивается в клиентский бандл на этапе сборки. Пусто (прод) =
+# тот же origin: nginx роутит /api и /ws на бэкенд. Локально передаём localhost.
+ARG NEXT_PUBLIC_BACKEND_URL=""
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 RUN npm run build
 
 FROM node:22-slim AS run

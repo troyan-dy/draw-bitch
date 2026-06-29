@@ -1,0 +1,89 @@
+name: CI
+
+# Тесты гоняем на каждый push и pull request. Образы собираем и пушим в GHCR
+# только когда код влит в master (на PR — только проверки, без публикации).
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # --- Бэкенд: lint + типы + тесты ------------------------------------------
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Установить uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Зависимости
+        run: uv sync --frozen
+      - name: ruff
+        run: uv run ruff check .
+      - name: mypy
+        run: uv run mypy
+      - name: pytest (покрытие ≥85%)
+        run: uv run pytest -q
+
+  # --- Фронтенд: типы + сборка ----------------------------------------------
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Зависимости
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: build
+        run: npm run build
+
+  # --- Сборка и публикация образов в GHCR -----------------------------------
+  # Только после зелёных тестов и только на master.
+  build-push:
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: ./backend
+          - name: frontend
+            context: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Логин в GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          # Две метки: latest (его тянет сервер) и точный commit SHA (для отката).
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/drawbitch-${{ matrix.name }}:latest
+            ghcr.io/${{ github.repository_owner }}/drawbitch-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max

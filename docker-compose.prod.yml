@@ -1,0 +1,26 @@
+# Прод-конфиг: НЕ собирает образы, а тянет готовые из GHCR (их собирает
+# GitHub Actions, см. .github/workflows/ci.yml). На сервере остаётся только
+# `docker compose -f docker-compose.prod.yml pull && up -d` — это и делает cron
+# (deploy/auto-update.sh). Состояние игры эфемерно (в памяти): пересоздание
+# контейнера обрывает активные игры — для вечеринок это приемлемо.
+services:
+  backend:
+    image: ghcr.io/troyan-dy/drawbitch-backend:latest
+    # Только loopback хоста: снаружи бэкенд публикует общий nginx, роутя на него
+    # /api и /ws. Браузер обращается к WS по тому же домену (wss://.../ws/...).
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # Прод-домен: с него браузер ходит на бэкенд (CORS + WS).
+      CORS_ORIGINS: "https://drawbitch.duckdns.org"
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/troyan-dy/drawbitch-frontend:latest
+    # Образ собран с пустым NEXT_PUBLIC_BACKEND_URL → клиент ходит на тот же
+    # origin, nginx роутит /api и /ws на бэкенд.
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

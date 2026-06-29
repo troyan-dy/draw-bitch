@@ -1,0 +1,24 @@
+# Локальный стек: собирает образы из исходников. Прод — в docker-compose.prod.yml.
+# Состояние игры живёт в памяти бэкенда, поэтому БД/Redis нет.
+services:
+  backend:
+    build: ./backend
+    # Только loopback хоста: снаружи бэкенд публикует общий nginx (см. deploy/nginx),
+    # маршрутизируя на него /api и /ws. Браузер ходит к WS через тот же домен.
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # В локальном стеке браузер ходит на бэкенд напрямую по loopback.
+        NEXT_PUBLIC_BACKEND_URL: "http://localhost:8000"
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
