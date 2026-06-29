@@ -21,5 +21,7 @@ export default function Timer({ seconds, active }: { seconds: number; active: bo
   }, [active]);
 
   const shown = Math.ceil(left);
-  return <div className={`timer ${shown <= 10 ? "low" : ""}`}>{active ? shown : "—"}</div>;
+  return (
+    <div className={`timer ${active && shown <= 10 ? "low" : ""}`}>{active ? shown : "—"}</div>
+  );
 }

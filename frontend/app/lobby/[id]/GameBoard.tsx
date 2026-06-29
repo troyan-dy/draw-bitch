@@ -33,12 +33,20 @@ export default function GameBoard({ socket }: { socket: SocketApi }) {
               ) : (
                 <span className="word-mask">{state.word_mask}</span>
               )
+            ) : state.phase === "game_end" ? (
+              <span className="muted">Игра окончена</span>
             ) : (
-              <span className="muted">Ход {state.turn_index + 1} из {state.total_turns}</span>
+              <span className="muted">
+                Ход {Math.min(state.turn_index + 1, state.total_turns)} из {state.total_turns}
+              </span>
             )}
           </div>
           <div className="muted" style={{ fontSize: 13 }}>
-            {isDrawer ? "Ты рисуешь" : `Рисует ${drawerName}`}
+            {state.phase === "game_end" || !state.drawer_id
+              ? ""
+              : isDrawer
+                ? "Ты рисуешь"
+                : `Рисует ${drawerName}`}
           </div>
           <Timer seconds={state.time_left} active={state.phase === "drawing"} />
         </div>
