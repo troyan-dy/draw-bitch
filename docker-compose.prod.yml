@@ -8,8 +8,10 @@ services:
     image: ghcr.io/troyan-dy/drawbitch-backend:latest
     # Только loopback хоста: снаружи бэкенд публикует общий nginx, роутя на него
     # /api и /ws. Браузер обращается к WS по тому же домену (wss://.../ws/...).
+    # Хостовый порт 8100 (не 8000): на общем сервере 8000 уже занят другим
+    # приложением. Внутри контейнера сервис по-прежнему слушает 8000.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8100:8000"
     environment:
       # Прод-домен: с него браузер ходит на бэкенд (CORS + WS).
       CORS_ORIGINS: "https://drawbitch.duckdns.org"
@@ -19,8 +21,10 @@ services:
     image: ghcr.io/troyan-dy/drawbitch-frontend:latest
     # Образ собран с пустым NEXT_PUBLIC_BACKEND_URL → клиент ходит на тот же
     # origin, nginx роутит /api и /ws на бэкенд.
+    # Хостовый порт 3100 (не 3000): 3000 на общем сервере занят. Внутри
+    # контейнера Next.js по-прежнему слушает 3000.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3100:3000"
     depends_on:
       - backend
     restart: unless-stopped
