@@ -7,6 +7,8 @@
 Минималистичная реалтайм-игра в духе Skribbl для компании друзей.
 Хост создаёт лобби, кидает ссылку — и поехали.
 
+### 🎮 Играть: **[drawbitch.duckdns.org](https://drawbitch.duckdns.org)**
+
 </div>
 
 <div align="center">
@@ -87,6 +89,10 @@ cd frontend && npm run typecheck && npm run build
 ```
 
 ## 📦 Деплой и CI/CD
+
+Прод: **<https://drawbitch.duckdns.org>**. Сервис живёт в Docker compose (backend +
+frontend), наружу смотрит общий nginx (TLS, роутинг по домену; `/ws` и `/api` →
+бэкенд). Контейнеры слушают только loopback хоста.
 
 `git push` в `master` запускает GitHub Actions: тесты → сборка образов
 `drawbitch-backend` и `drawbitch-frontend` → публикация в GHCR.
