@@ -31,8 +31,8 @@
 
 | Слой | Технологии |
 |------|-----------|
-| **Бэкенд** | Python 3.13, FastAPI, WebSocket, [uv](https://github.com/astral-sh/uv). Состояние игры — в памяти, без БД. |
-| **Фронтенд** | Next.js 15 (standalone), React 19, TypeScript, HTML5 Canvas. |
+| **Бэкенд** | Python 3.14, FastAPI, WebSocket, [uv](https://github.com/astral-sh/uv). Состояние игры — в памяти, без БД. |
+| **Фронтенд** | Next.js 16 (standalone), React 19, TypeScript, HTML5 Canvas. |
 | **Инфра** | Docker, GitHub Actions → GHCR, nginx + TLS, авто-деплой по cron. |
 
 ---
@@ -62,7 +62,7 @@
 
 ## 🚀 Локальный запуск
 
-Нужны [`uv`](https://github.com/astral-sh/uv) и `node 22+`.
+Нужны [`uv`](https://github.com/astral-sh/uv) и `node 24+`.
 
 ```bash
 # 1) бэкенд → http://localhost:8000
