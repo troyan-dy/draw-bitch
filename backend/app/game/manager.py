@@ -13,12 +13,6 @@ class LobbyManager:
     def __init__(self) -> None:
         self._lobbies: dict[str, Lobby] = {}
 
-    def _new_id(self) -> str:
-        while True:
-            lobby_id = "".join(secrets.choice(_ALPHABET) for _ in range(6))
-            if lobby_id not in self._lobbies:
-                return lobby_id
-
     def create(self) -> Lobby:
         lobby_id = self._new_id()
         lobby = Lobby(id=lobby_id)
@@ -30,6 +24,12 @@ class LobbyManager:
 
     def remove(self, lobby_id: str) -> None:
         self._lobbies.pop(lobby_id, None)
+
+    def _new_id(self) -> str:
+        while True:
+            lobby_id = "".join(secrets.choice(_ALPHABET) for _ in range(6))
+            if lobby_id not in self._lobbies:
+                return lobby_id
 
 
 manager = LobbyManager()

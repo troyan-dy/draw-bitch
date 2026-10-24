@@ -1,9 +1,9 @@
-FROM node:22-slim AS deps
+FROM node:24-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* .npmrc* ./
 RUN npm ci || npm install
 
-FROM node:22-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -13,7 +13,7 @@ ARG NEXT_PUBLIC_BACKEND_URL=""
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 RUN npm run build
 
-FROM node:22-slim AS run
+FROM node:24-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production
 # server.js слушает этот адрес/порт (иначе standalone биндится на localhost

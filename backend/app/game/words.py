@@ -2,7 +2,7 @@
 
 import random
 
-WORDS: list[str] = [
+WORDS: tuple[str, ...] = (
     "кот",
     "собака",
     "дерево",
@@ -328,9 +328,9 @@ WORDS: list[str] = [
     "дым",
     "пламя",
     "уголь",
-]
+)
 
 
-def pick_words(n: int = 3) -> list[str]:
-    """Вернуть n уникальных случайных слов из WORDS."""
-    return random.sample(WORDS, n)
+def pick_words(count: int = 3) -> list[str]:
+    """Вернуть count уникальных случайных слов из WORDS."""
+    return random.sample(WORDS, count)
