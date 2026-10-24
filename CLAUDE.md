@@ -49,7 +49,7 @@ WebSocket; фронтенд (Next.js) — клиентская игровая к
 # бэкенд
 cd backend && uv sync
 uv run uvicorn app.main:app --reload      # http://localhost:8000, /docs
-make check                                 # ruff + mypy + pytest
+make check                                 # ruff + WPS (flake8) + mypy + pytest
 
 # фронтенд
 cd frontend && npm install

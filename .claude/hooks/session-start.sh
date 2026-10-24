@@ -15,6 +15,8 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 (cd backend && uv sync --frozen)
+# Проверка, что линтеры из dev-группы на месте (ruff, flake8 + WPS).
+(cd backend && uv run ruff --version && uv run flake8 --version) >/dev/null
 
 # Фронтенд: npm install (а не ci) — переиспользует закэшированный node_modules.
 (cd frontend && npm install --no-audit --no-fund)

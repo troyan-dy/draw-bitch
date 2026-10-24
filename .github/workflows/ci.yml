@@ -28,6 +28,8 @@ jobs:
         run: uv sync --frozen
       - name: ruff
         run: uv run ruff check .
+      - name: wemake-python-styleguide
+        run: uv run flake8 . --select=WPS
       - name: mypy
         run: uv run mypy
       - name: pytest (покрытие ≥85%)

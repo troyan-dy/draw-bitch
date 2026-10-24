@@ -84,7 +84,7 @@ make dev        # docker compose up --build
 ## ✅ Проверки
 
 ```bash
-make check                                  # бэкенд: ruff + mypy + pytest (покрытие ≥85%)
+make check                                  # бэкенд: ruff + WPS + mypy + pytest (покрытие ≥85%)
 cd frontend && npm run typecheck && npm run build
 ```
 

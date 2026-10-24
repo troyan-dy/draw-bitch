@@ -19,6 +19,7 @@ dev = [
     "pytest-asyncio>=1.4",
     "pytest-cov>=7.1",
     "ruff>=0.17",
+    "wemake-python-styleguide>=1.8.1",
     "httpx>=0.28",
 ]
 
