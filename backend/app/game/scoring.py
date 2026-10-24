@@ -1,5 +1,9 @@
 """Чистые функции подсчёта очков. Без I/O — легко тестировать."""
 
+# Бонус за место в очереди угадывания: первому +RANK_BONUS_MAX, дальше минус STEP за место.
+RANK_BONUS_MAX = 10
+RANK_BONUS_STEP = 2
+
 
 def guesser_points(
     time_left: float,
@@ -18,10 +22,10 @@ def guesser_points(
     """
     if duration <= 0:
         return base
-    fraction = max(0.0, min(1.0, time_left / duration))
+    fraction = max(0, min(1, time_left / duration))
     speed = minimum + (base - minimum) * fraction
     # Бонус за место: первым +10%, дальше затухает.
-    rank_bonus = max(0.0, 10.0 - order * 2.0)
+    rank_bonus = max(0, RANK_BONUS_MAX - order * RANK_BONUS_STEP)
     return round(speed + rank_bonus)
 
 

@@ -6,9 +6,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
+
+COLOR_MAX_LENGTH = 16  # "#rrggbb" с запасом под rgba()/имена цветов
+CHAT_MAX_LENGTH = 200  # длина сообщения в чате
 
 # ---- REST -----------------------------------------------------------------
 
@@ -49,7 +54,7 @@ class Segment(BaseModel):
     y0: float
     x1: float
     y1: float
-    color: str = Field(max_length=16)
+    color: str = Field(max_length=COLOR_MAX_LENGTH)
     size: float
 
 
@@ -64,7 +69,7 @@ class ClearMsg(BaseModel):
 
 class ChatMsg(BaseModel):
     type: Literal["chat"]
-    text: str = Field(max_length=200)
+    text: str = Field(max_length=CHAT_MAX_LENGTH)
 
 
 ClientMessage = (
@@ -77,7 +82,7 @@ ClientMessage = (
     | ChatMsg
 )
 
-_BY_TYPE: dict[str, type[BaseModel]] = {
+_BY_TYPE: Mapping[str, type[BaseModel]] = MappingProxyType({
     "join": JoinMsg,
     "start_game": StartGameMsg,
     "update_settings": UpdateSettingsMsg,
@@ -85,7 +90,7 @@ _BY_TYPE: dict[str, type[BaseModel]] = {
     "draw": DrawMsg,
     "clear": ClearMsg,
     "chat": ChatMsg,
-}
+})
 
 
 def parse_client_message(raw: Any) -> ClientMessage | None:

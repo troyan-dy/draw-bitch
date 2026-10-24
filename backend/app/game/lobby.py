@@ -94,21 +94,13 @@ class Lobby:
         if player_id == self.host_id:
             self._reassign_host()
 
-    def _reassign_host(self) -> None:
-        """Передать роль хоста первому онлайн-игроку (или None, если все ушли)."""
-        for pid in self.order:
-            if self.players[pid].connected:
-                self.host_id = pid
-                return
-        self.host_id = None
-
     @property
     def online_ids(self) -> list[str]:
         return [pid for pid in self.order if self.players[pid].connected]
 
     @property
     def empty(self) -> bool:
-        return all(not p.connected for p in self.players.values())
+        return all(not player.connected for player in self.players.values())
 
     # ---- Жизненный цикл игры ---------------------------------------------
 
@@ -135,8 +127,8 @@ class Lobby:
         """Начать игру: сбросить очки, зафиксировать очередь, открыть выбор слова."""
         if not self.can_start(player_id):
             return False
-        for p in self.players.values():
-            p.score = 0
+        for player in self.players.values():
+            player.score = 0
         # Очередь рисующих = онлайн-игроки на момент старта.
         self.order = self.online_ids + [
             pid for pid in self.order if pid not in set(self.online_ids)
@@ -144,24 +136,6 @@ class Lobby:
         self.turn_index = 0
         self._begin_turn()
         return True
-
-    def _begin_turn(self) -> None:
-        """Открыть фазу выбора слова для текущего рисующего."""
-        self.drawer_id = self._drawer_for_turn(self.turn_index)
-        self.word = None
-        self.word_choices = pick_words(3)
-        self.guessed.clear()
-        self.guess_order = 0
-        self.started_at = None
-        self.strokes.clear()
-        self.phase = Phase.CHOOSING
-
-    def _drawer_for_turn(self, turn_index: int) -> str | None:
-        """Рисующий выбирается циклически среди онлайн-игроков на старте игры."""
-        candidates = self.online_ids or self.order
-        if not candidates:
-            return None
-        return candidates[turn_index % len(candidates)]
 
     def choose_word(self, player_id: str, word: str, now: float) -> bool:
         """Текущий рисующий выбрал слово → начинается рисование и таймер."""
@@ -178,8 +152,8 @@ class Lobby:
 
     def time_left(self, now: float) -> float:
         if self.phase != Phase.DRAWING or self.started_at is None:
-            return 0.0
-        return max(0.0, self.round_seconds - (now - self.started_at))
+            return 0
+        return max(0, self.round_seconds - (now - self.started_at))
 
     @property
     def potential_guessers(self) -> int:
@@ -264,7 +238,7 @@ class Lobby:
         """Маска слова для угадывающих: подчёркивания, пробелы сохраняются."""
         if not self.word:
             return ""
-        return " ".join("_" if ch != " " else " " for ch in self.word)
+        return " ".join(" " if ch == " " else "_" for ch in self.word)
 
     def snapshot(self, now: float, *, for_player: str | None = None) -> dict:
         """Полное состояние для рассылки. Рисующему/угадавшим видно слово."""
@@ -272,6 +246,7 @@ class Lobby:
             for_player is not None
             and (for_player == self.drawer_id or for_player in self.guessed)
         )
+        players = [self.players[pid] for pid in self.order if pid in self.players]
         return {
             "phase": self.phase.value,
             "host_id": self.host_id,
@@ -286,11 +261,39 @@ class Lobby:
             "strokes": self.strokes,
             "players": [
                 {
-                    "id": p.id,
-                    "name": p.name,
-                    "score": p.score,
-                    "connected": p.connected,
+                    "id": player.id,
+                    "name": player.name,
+                    "score": player.score,
+                    "connected": player.connected,
                 }
-                for p in (self.players[pid] for pid in self.order if pid in self.players)
+                for player in players
             ],
         }
+
+    # ---- Внутреннее -------------------------------------------------------
+
+    def _begin_turn(self) -> None:
+        """Открыть фазу выбора слова для текущего рисующего."""
+        self.drawer_id = self._drawer_for_turn(self.turn_index)
+        self.word = None
+        self.word_choices = pick_words(3)
+        self.guessed.clear()
+        self.guess_order = 0
+        self.started_at = None
+        self.strokes.clear()
+        self.phase = Phase.CHOOSING
+
+    def _drawer_for_turn(self, turn_index: int) -> str | None:
+        """Рисующий выбирается циклически среди онлайн-игроков на старте игры."""
+        candidates = self.online_ids or self.order
+        if not candidates:
+            return None
+        return candidates[turn_index % len(candidates)]
+
+    def _reassign_host(self) -> None:
+        """Передать роль хоста первому онлайн-игроку (или None, если все ушли)."""
+        for pid in self.order:
+            if self.players[pid].connected:
+                self.host_id = pid
+                return
+        self.host_id = None

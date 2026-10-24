@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from contextlib import suppress
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -41,10 +42,9 @@ class Hub:
         ws = self.connections.get(player_id)
         if ws is None:
             return
-        try:
+        # Соединение умерло — уберём при дисконнекте.
+        with suppress(Exception):
             await ws.send_json(message)
-        except Exception:  # соединение умерло — уберём при дисконнекте
-            pass
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         for pid in list(self.connections):
@@ -54,7 +54,8 @@ class Hub:
         """Каждому шлём персонализированный снимок (рисующий/угадавшие видят слово)."""
         now = time.monotonic()
         for pid in list(self.connections):
-            await self.send(pid, msg("state", **self.lobby.snapshot(now, for_player=pid)))
+            snapshot = self.lobby.snapshot(now, for_player=pid)
+            await self.send(pid, msg("state", **snapshot))
 
     # ---- Таймер хода ------------------------------------------------------
 
@@ -67,48 +68,16 @@ class Hub:
         self.cancel_turn_timer()
         self._turn_task = asyncio.create_task(self._run_turn(self.lobby.turn_index))
 
-    async def _run_turn(self, turn_index: int) -> None:
-        """Ждём конца таймера и завершаем ход, если он ещё тот же самый."""
-        try:
-            await asyncio.sleep(self.lobby.round_seconds)
-            if self.lobby.phase == Phase.DRAWING and self.lobby.turn_index == turn_index:
-                await self.finish_turn()
-        except asyncio.CancelledError:
-            pass
-
     async def finish_turn(self) -> None:
         """Завершить ход досрочно/по таймеру, показать слово, запланировать переход."""
         self.cancel_turn_timer()
         word = self.lobby.word
         self.lobby.end_turn()
-        scores = {p["id"]: p["score"] for p in self.lobby.snapshot(time.monotonic())["players"]}
+        players = self.lobby.snapshot(time.monotonic())["players"]
+        scores = {player["id"]: player["score"] for player in players}
         await self.broadcast(msg("turn_end", word=word, scores=scores))
         await self.broadcast_state()
         self._turn_task = asyncio.create_task(self._after_turn_end(self.lobby.turn_index))
-
-    async def _after_turn_end(self, turn_index: int) -> None:
-        try:
-            await asyncio.sleep(settings.turn_end_pause)
-            if self.lobby.turn_index != turn_index or self.lobby.phase != Phase.TURN_END:
-                return
-            self.lobby.advance()
-            if self.lobby.phase == Phase.GAME_END:
-                await self.broadcast(msg("game_end"))
-                await self.broadcast_state()
-                self._turn_task = asyncio.create_task(self._after_game_end())
-            else:
-                await self.begin_choosing()
-        except asyncio.CancelledError:
-            pass
-
-    async def _after_game_end(self) -> None:
-        try:
-            await asyncio.sleep(settings.game_end_pause)
-            if self.lobby.phase == Phase.GAME_END:
-                self.lobby.phase = Phase.WAITING
-                await self.broadcast_state()
-        except asyncio.CancelledError:
-            pass
 
     async def begin_choosing(self) -> None:
         """Разослать состояние выбора слова: рисующему — варианты, всем — снимок."""
@@ -122,6 +91,35 @@ class Hub:
         """Если ушёл рисующий во время хода — завершаем ход досрочно."""
         if self.lobby.drawer_left_during_turn(player_id):
             await self.finish_turn()
+
+    # ---- Фоновые задачи таймера ------------------------------------------
+
+    async def _run_turn(self, turn_index: int) -> None:
+        """Ждём конца таймера и завершаем ход, если он ещё тот же самый."""
+        with suppress(asyncio.CancelledError):
+            await asyncio.sleep(self.lobby.round_seconds)
+            if self.lobby.phase == Phase.DRAWING and self.lobby.turn_index == turn_index:
+                await self.finish_turn()
+
+    async def _after_turn_end(self, turn_index: int) -> None:
+        with suppress(asyncio.CancelledError):
+            await asyncio.sleep(settings.turn_end_pause)
+            if self.lobby.turn_index != turn_index or self.lobby.phase != Phase.TURN_END:
+                return
+            self.lobby.advance()
+            if self.lobby.phase == Phase.GAME_END:
+                await self.broadcast(msg("game_end"))
+                await self.broadcast_state()
+                self._turn_task = asyncio.create_task(self._after_game_end())
+            else:
+                await self.begin_choosing()
+
+    async def _after_game_end(self) -> None:
+        with suppress(asyncio.CancelledError):
+            await asyncio.sleep(settings.game_end_pause)
+            if self.lobby.phase == Phase.GAME_END:
+                self.lobby.phase = Phase.WAITING
+                await self.broadcast_state()
 
 
 _hubs: dict[str, Hub] = {}
@@ -154,9 +152,9 @@ def register_ws(app: FastAPI) -> None:
                 message = parse_client_message(raw)
                 if message is None:
                     continue
-                player_id = await _handle(hub, ws, lobby, player_id, message)
+                player_id = await _dispatch(hub, ws, lobby, player_id, message)
         except WebSocketDisconnect:
-            pass
+            pass  # noqa: WPS420 — штатный уход клиента, cleanup в finally
         except Exception as exc:  # noqa: BLE001
             logger.warning("ws error in lobby {}: {}", lobby_id, exc)
         finally:
@@ -171,7 +169,7 @@ def register_ws(app: FastAPI) -> None:
                     manager.remove(lobby.id)
 
 
-async def _handle(
+async def _dispatch(
     hub: Hub,
     ws: WebSocket,
     lobby: Lobby,
@@ -231,14 +229,14 @@ def message_is_clear(message: Any) -> bool:
 async def _handle_chat(
     hub: Hub, lobby: Lobby, player_id: str, message: ChatMsg, now: float
 ) -> None:
-    result = lobby.submit_guess(player_id, message.text, now)
-    if result.correct:
+    guess = lobby.submit_guess(player_id, message.text, now)
+    if guess.correct:
         # Слово не палим: всем — факт угадывания, без текста.
         await hub.broadcast(
-            msg("correct_guess", player_id=player_id, points=result.points)
+            msg("correct_guess", player_id=player_id, points=guess.points)
         )
         await hub.broadcast_state()
-        if result.all_guessed:
+        if guess.all_guessed:
             await hub.finish_turn()
     else:
         # Обычное сообщение: рисующему и уже угадавшим не показываем чужие догадки
